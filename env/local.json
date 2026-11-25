@@ -1,0 +1,4 @@
+{
+  "APP_ENV": "local",
+  "API_ORIGIN": "http://10.0.2.2:5001"
+}

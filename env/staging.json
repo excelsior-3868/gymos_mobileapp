@@ -1,0 +1,4 @@
+{
+  "APP_ENV": "staging",
+  "API_ORIGIN": "https://staging.your-domain.example"
+}
