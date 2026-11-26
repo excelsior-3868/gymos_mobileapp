@@ -14,6 +14,7 @@ import '../sub_screens/billing_screen.dart';
 import '../sub_screens/edit_profile_screen.dart';
 import '../sub_screens/membership_screen.dart';
 import '../sub_screens/notifications_screen.dart';
+import '../sub_screens/pass_screen.dart';
 import '../sub_screens/referrals_screen.dart';
 
 class ProfileTab extends StatelessWidget {
@@ -74,8 +75,14 @@ class ProfileTab extends StatelessWidget {
             ),
             if (hasPhoto)
               ListTile(
-                leading: const Icon(Icons.delete_outline, color: AppColors.danger),
-                title: const Text('Remove photo', style: TextStyle(color: AppColors.danger)),
+                leading: const Icon(
+                  Icons.delete_outline,
+                  color: AppColors.danger,
+                ),
+                title: const Text(
+                  'Remove photo',
+                  style: TextStyle(color: AppColors.danger),
+                ),
                 onTap: () => Navigator.pop(ctx, 'remove'),
               ),
           ],
@@ -87,7 +94,9 @@ class ProfileTab extends StatelessWidget {
     try {
       if (choice == 'remove') {
         await gym.removeProfilePhoto();
-        messenger.showSnackBar(const SnackBar(content: Text('Profile photo removed.')));
+        messenger.showSnackBar(
+          const SnackBar(content: Text('Profile photo removed.')),
+        );
         return;
       }
       final picked = await ImagePicker().pickImage(
@@ -98,8 +107,13 @@ class ProfileTab extends StatelessWidget {
       );
       if (picked == null) return;
       final lower = picked.path.toLowerCase();
-      await gym.uploadProfilePhoto(picked.path, mime: lower.endsWith('.png') ? 'image/png' : 'image/jpeg');
-      messenger.showSnackBar(const SnackBar(content: Text('Profile photo updated.')));
+      await gym.uploadProfilePhoto(
+        picked.path,
+        mime: lower.endsWith('.png') ? 'image/png' : 'image/jpeg',
+      );
+      messenger.showSnackBar(
+        const SnackBar(content: Text('Profile photo updated.')),
+      );
     } catch (e) {
       messenger.showSnackBar(SnackBar(content: Text(e.toString())));
     }
@@ -139,11 +153,19 @@ class ProfileTab extends StatelessWidget {
         onRefresh: () => gym.fetchMe(),
         child: SingleChildScrollView(
           physics: const AlwaysScrollableScrollPhysics(),
-          padding: EdgeInsets.fromLTRB(16, topPadding + 16, 16, bottomPadding + 24),
+          padding: EdgeInsets.fromLTRB(
+            16,
+            topPadding + 16,
+            16,
+            bottomPadding + 24,
+          ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              const ScreenTitle(title: 'Profile', subtitle: 'Your account and settings'),
+              const ScreenTitle(
+                title: 'Profile',
+                subtitle: 'Your account and settings',
+              ),
               const SizedBox(height: 16),
 
               // Profile Header Card
@@ -151,7 +173,10 @@ class ProfileTab extends StatelessWidget {
                 child: Column(
                   children: [
                     GestureDetector(
-                      onTap: () => _changePhoto(context, (member.photoUrl ?? '').isNotEmpty),
+                      onTap: () => _changePhoto(
+                        context,
+                        (member.photoUrl ?? '').isNotEmpty,
+                      ),
                       child: Stack(
                         clipBehavior: Clip.none,
                         children: [
@@ -170,9 +195,16 @@ class ProfileTab extends StatelessWidget {
                               decoration: BoxDecoration(
                                 color: AppColors.primary,
                                 shape: BoxShape.circle,
-                                border: Border.all(color: AppColors.surface, width: 2),
+                                border: Border.all(
+                                  color: AppColors.surface,
+                                  width: 2,
+                                ),
                               ),
-                              child: const Icon(Icons.photo_camera, size: 15, color: Colors.white),
+                              child: const Icon(
+                                Icons.photo_camera,
+                                size: 15,
+                                color: Colors.white,
+                              ),
                             ),
                           ),
                         ],
@@ -181,12 +213,18 @@ class ProfileTab extends StatelessWidget {
                     const SizedBox(height: 12),
                     Text(
                       member.fullName,
-                      style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w700),
+                      style: const TextStyle(
+                        fontSize: 22,
+                        fontWeight: FontWeight.w700,
+                      ),
                     ),
                     const SizedBox(height: 2),
                     Text(
                       member.phone,
-                      style: const TextStyle(fontSize: 14, color: AppColors.textMuted),
+                      style: const TextStyle(
+                        fontSize: 14,
+                        color: AppColors.textMuted,
+                      ),
                     ),
                     const SizedBox(height: 10),
                     Row(
@@ -200,14 +238,19 @@ class ProfileTab extends StatelessWidget {
                         const SizedBox(width: 8),
                         AppBadge(
                           text: member.isActive == true ? 'Active' : 'Inactive',
-                          tone: member.isActive == true ? BadgeTone.success : BadgeTone.danger,
+                          tone: member.isActive == true
+                              ? BadgeTone.success
+                              : BadgeTone.danger,
                         ),
                       ],
                     ),
                     const SizedBox(height: 10),
                     Text(
                       'Member since ${AppFormat.formatDate(member.registrationDate)}',
-                      style: const TextStyle(fontSize: 12, color: AppColors.textMuted),
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: AppColors.textMuted,
+                      ),
                     ),
                   ],
                 ),
@@ -220,23 +263,41 @@ class ProfileTab extends StatelessWidget {
                 child: Column(
                   children: [
                     _buildRow(
+                      icon: Icons.qr_code_2_rounded,
+                      title: 'Gym pass',
+                      subtitle: 'Show your QR code at the gate',
+                      onTap: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (_) => const PassScreen()),
+                      ),
+                    ),
+                    const AppDivider(),
+                    _buildRow(
                       icon: Icons.card_membership_outlined,
                       title: 'My membership',
                       subtitle: 'Plan, validity and history',
                       onTap: () => Navigator.push(
                         context,
-                        MaterialPageRoute(builder: (_) => const MembershipScreen()),
+                        MaterialPageRoute(
+                          builder: (_) => const MembershipScreen(),
+                        ),
                       ),
                     ),
                     const AppDivider(),
                     _buildRow(
                       icon: Icons.credit_card_outlined,
                       title: 'Billing & payments',
-                      subtitle: due > 0 ? '${AppFormat.money(due)} outstanding' : 'Invoices and receipts',
-                      right: due > 0 ? const AppBadge(text: 'Due', tone: BadgeTone.warning) : null,
+                      subtitle: due > 0
+                          ? '${AppFormat.money(due)} outstanding'
+                          : 'Invoices and receipts',
+                      right: due > 0
+                          ? const AppBadge(text: 'Due', tone: BadgeTone.warning)
+                          : null,
                       onTap: () => Navigator.push(
                         context,
-                        MaterialPageRoute(builder: (_) => const BillingScreen()),
+                        MaterialPageRoute(
+                          builder: (_) => const BillingScreen(),
+                        ),
                       ),
                     ),
                     const AppDivider(),
@@ -244,11 +305,16 @@ class ProfileTab extends StatelessWidget {
                       icon: Icons.notifications_none_outlined,
                       title: 'Notifications',
                       right: me.unreadNotifications > 0
-                          ? AppBadge(text: '${me.unreadNotifications} new', tone: BadgeTone.info)
+                          ? AppBadge(
+                              text: '${me.unreadNotifications} new',
+                              tone: BadgeTone.info,
+                            )
                           : null,
                       onTap: () => Navigator.push(
                         context,
-                        MaterialPageRoute(builder: (_) => const NotificationsScreen()),
+                        MaterialPageRoute(
+                          builder: (_) => const NotificationsScreen(),
+                        ),
                       ),
                     ),
                     const AppDivider(),
@@ -258,7 +324,9 @@ class ProfileTab extends StatelessWidget {
                       subtitle: 'Invite friends, earn rewards',
                       onTap: () => Navigator.push(
                         context,
-                        MaterialPageRoute(builder: (_) => const ReferralsScreen()),
+                        MaterialPageRoute(
+                          builder: (_) => const ReferralsScreen(),
+                        ),
                       ),
                     ),
                   ],
@@ -277,7 +345,9 @@ class ProfileTab extends StatelessWidget {
                       subtitle: member.email ?? 'Add your email',
                       onTap: () => Navigator.push(
                         context,
-                        MaterialPageRoute(builder: (_) => const EditProfileScreen()),
+                        MaterialPageRoute(
+                          builder: (_) => const EditProfileScreen(),
+                        ),
                       ),
                     ),
                     const AppDivider(),
@@ -301,7 +371,9 @@ class ProfileTab extends StatelessWidget {
                       subtitle: member.fitnessGoals ?? 'Not set',
                       onTap: () => Navigator.push(
                         context,
-                        MaterialPageRoute(builder: (_) => const EditProfileScreen()),
+                        MaterialPageRoute(
+                          builder: (_) => const EditProfileScreen(),
+                        ),
                       ),
                     ),
                     const AppDivider(),
@@ -311,7 +383,10 @@ class ProfileTab extends StatelessWidget {
                       subtitle: 'Update your login password',
                       onTap: () => Navigator.push(
                         context,
-                        MaterialPageRoute(builder: (_) => const ChangePasswordScreen(isForced: false)),
+                        MaterialPageRoute(
+                          builder: (_) =>
+                              const ChangePasswordScreen(isForced: false),
+                        ),
                       ),
                     ),
                     const AppDivider(),
@@ -322,11 +397,11 @@ class ProfileTab extends StatelessWidget {
                       title: '${auth.biometricLabel} login',
                       subtitle: auth.biometricAvailable
                           ? (auth.biometricEnabled
-                              ? 'Enabled for quick sign-in'
-                              : 'Use ${auth.biometricLabel} to sign in')
+                                ? 'Enabled for quick sign-in'
+                                : 'Use ${auth.biometricLabel} to sign in')
                           : auth.biometricSupported
-                              ? 'Enroll fingerprint/Face ID in device settings first'
-                              : 'Not available on this device',
+                          ? 'Enroll fingerprint/Face ID in device settings first'
+                          : 'Not available on this device',
                       hasChevron: false,
                       onTap: auth.biometricAvailable
                           ? null
@@ -344,7 +419,9 @@ class ProfileTab extends StatelessWidget {
                                   context: context,
                                   builder: (ctx) => AlertDialog(
                                     shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(AppRadius.md),
+                                      borderRadius: BorderRadius.circular(
+                                        AppRadius.md,
+                                      ),
                                     ),
                                     title: Text(
                                       auth.biometricSupported
@@ -387,7 +464,9 @@ class ProfileTab extends StatelessWidget {
                                   if (context.mounted) {
                                     ScaffoldMessenger.of(context).showSnackBar(
                                       SnackBar(
-                                        content: Text('${auth.biometricLabel} login disabled.'),
+                                        content: Text(
+                                          '${auth.biometricLabel} login disabled.',
+                                        ),
                                       ),
                                     );
                                   }
@@ -411,7 +490,10 @@ class ProfileTab extends StatelessWidget {
               Text(
                 '${brand.gymName} Member · v1.0.0',
                 textAlign: TextAlign.center,
-                style: const TextStyle(fontSize: 12, color: AppColors.textFaint),
+                style: const TextStyle(
+                  fontSize: 12,
+                  color: AppColors.textFaint,
+                ),
               ),
             ],
           ),
@@ -459,7 +541,10 @@ class ProfileTab extends StatelessWidget {
                       const SizedBox(height: 2),
                       Text(
                         subtitle,
-                        style: const TextStyle(fontSize: 12, color: AppColors.textMuted),
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: AppColors.textMuted,
+                        ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
@@ -467,12 +552,13 @@ class ProfileTab extends StatelessWidget {
                   ],
                 ),
               ),
-              if (right != null) ...[
-                right,
-                const SizedBox(width: 8),
-              ],
+              if (right != null) ...[right, const SizedBox(width: 8)],
               if (hasChevron && onTap != null)
-                const Icon(Icons.chevron_right, size: 20, color: AppColors.textFaint),
+                const Icon(
+                  Icons.chevron_right,
+                  size: 20,
+                  color: AppColors.textFaint,
+                ),
             ],
           ),
         ),
