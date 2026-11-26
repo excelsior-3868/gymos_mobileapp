@@ -28,6 +28,7 @@ class PushNotificationService {
   );
 
   static bool _initialized = false;
+  static Future<void>? _initFuture;
   static String? _currentToken;
   static bool _hasPendingTap = false;
 
@@ -42,24 +43,30 @@ class PushNotificationService {
 
   /// Initializes Firebase, local notifications, and FCM listeners.
   /// Gracefully no-ops on platforms without Firebase options configured yet.
-  static Future<void> init() async {
-    if (_initialized) return;
+  static Future<void> init() {
+    if (_initialized) return Future.value();
+    return _initFuture ??= _doInit();
+  }
+
+  static Future<void> _doInit() async {
     final options = DefaultFirebaseOptions.currentPlatformOrNull;
     if (options == null) return;
 
     try {
       if (Firebase.apps.isEmpty) {
-        await Firebase.initializeApp(options: options);
+        await Firebase.initializeApp(options: options).timeout(const Duration(seconds: 5));
       }
 
       FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
 
       // Show banner, badge, and sound when a notification arrives in the foreground on iOS.
-      await FirebaseMessaging.instance.setForegroundNotificationPresentationOptions(
-        alert: true,
-        badge: true,
-        sound: true,
-      );
+      await FirebaseMessaging.instance
+          .setForegroundNotificationPresentationOptions(
+            alert: true,
+            badge: true,
+            sound: true,
+          )
+          .timeout(const Duration(seconds: 5));
 
       // Initialize local notifications for Android foreground display & tap handling.
       const initSettings = InitializationSettings(
@@ -94,7 +101,9 @@ class PushNotificationService {
       FirebaseMessaging.onMessageOpenedApp.listen((_) => _handleTap());
 
       // Notification tapped from terminated state
-      final initialMessage = await FirebaseMessaging.instance.getInitialMessage();
+      final initialMessage = await FirebaseMessaging.instance
+          .getInitialMessage()
+          .timeout(const Duration(seconds: 5), onTimeout: () => null);
       if (initialMessage != null) {
         _hasPendingTap = true;
       }
@@ -155,6 +164,9 @@ class PushNotificationService {
   /// Requests OS notification permission, retrieves the FCM token, and registers
   /// it with the GymOS backend (best-effort).
   static Future<void> registerForMember() async {
+    if (!_initialized) {
+      await init();
+    }
     if (!_initialized) return;
     try {
       final settings = await FirebaseMessaging.instance.requestPermission(

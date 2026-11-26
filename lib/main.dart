@@ -17,7 +17,8 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   await AppConfig.init();
-  await PushNotificationService.init();
+  // Initialize push notifications asynchronously so startup never blocks the first frame.
+  PushNotificationService.init();
 
   // Set system navigation & status bar style
   SystemChrome.setSystemUIOverlayStyle(
