@@ -1,37 +1,235 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import '../../providers/gym_provider.dart';
 import '../../theme/app_theme.dart';
 import '../../utils/format.dart';
 import '../../widgets/ui_components.dart';
 
-class ActivityTab extends StatelessWidget {
+class ActivityTab extends StatefulWidget {
   const ActivityTab({super.key});
 
-  static const int weeks = 15;
-  static const int dayMs = 86400000;
+  @override
+  State<ActivityTab> createState() => _ActivityTabState();
+}
 
-  List<List<({String date, bool visited, bool future})>> _buildGrid(Set<String> visits) {
-    final todayStr = AppFormat.todayKey();
-    final today = DateTime.parse('${todayStr}T00:00:00Z');
-    final end = today.millisecondsSinceEpoch + (6 - (today.weekday % 7)) * dayMs;
-    final start = end - (weeks * 7 - 1) * dayMs;
+class _ActivityTabState extends State<ActivityTab> {
+  late DateTime _displayedMonth;
+  late DateTime _currentMonth;
 
-    final cols = <List<({String date, bool visited, bool future})>>[];
-    for (int w = 0; w < weeks; w++) {
-      final col = <({String date, bool visited, bool future})>[];
-      for (int d = 0; d < 7; d++) {
-        final currentDt = DateTime.fromMillisecondsSinceEpoch(start + (w * 7 + d) * dayMs, isUtc: true);
-        final dateStr = '${currentDt.year}-${currentDt.month.toString().padLeft(2, '0')}-${currentDt.day.toString().padLeft(2, '0')}';
-        col.add((
-          date: dateStr,
-          visited: visits.contains(dateStr),
-          future: dateStr.compareTo(todayStr) > 0,
-        ));
-      }
-      cols.add(col);
-    }
-    return cols;
+  @override
+  void initState() {
+    super.initState();
+    final today = DateTime.parse('${AppFormat.todayKey()}T00:00:00Z');
+    _currentMonth = DateTime.utc(today.year, today.month, 1);
+    _displayedMonth = _currentMonth;
+  }
+
+  bool get _canGoNext =>
+      _displayedMonth.year < _currentMonth.year ||
+      (_displayedMonth.year == _currentMonth.year && _displayedMonth.month < _currentMonth.month);
+
+  void _changeMonth(int delta) {
+    HapticFeedback.selectionClick();
+    setState(() {
+      _displayedMonth = DateTime.utc(_displayedMonth.year, _displayedMonth.month + delta, 1);
+    });
+  }
+
+  Widget _buildCalendarCard(Set<String> visitSet, String todayKey) {
+    final year = _displayedMonth.year;
+    final month = _displayedMonth.month;
+    final daysInMonth = DateTime.utc(year, month + 1, 0).day;
+    // Sunday = 0, Monday = 1, ..., Saturday = 6
+    final leadingBlanks = DateTime.utc(year, month, 1).weekday % 7;
+    final totalCells = ((leadingBlanks + daysInMonth + 6) ~/ 7) * 7;
+
+    final monthPrefix = '$year-${month.toString().padLeft(2, '0')}-';
+    final visitsInMonth = visitSet.where((d) => d.startsWith(monthPrefix)).length;
+    final monthTitle = DateFormat('MMMM yyyy').format(_displayedMonth);
+    const weekdays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+    return AppCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // Month Header + Navigation
+          Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      monthTitle,
+                      style: const TextStyle(
+                        fontSize: 17,
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.text,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      '$visitsInMonth visit${visitsInMonth == 1 ? '' : 's'} logged',
+                      style: const TextStyle(fontSize: 12, color: AppColors.textMuted),
+                    ),
+                  ],
+                ),
+              ),
+              _monthNavButton(
+                icon: Icons.chevron_left_rounded,
+                onTap: () => _changeMonth(-1),
+              ),
+              const SizedBox(width: 6),
+              _monthNavButton(
+                icon: Icons.chevron_right_rounded,
+                onTap: _canGoNext ? () => _changeMonth(1) : null,
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+
+          // Weekday Labels
+          Row(
+            children: weekdays
+                .map(
+                  (d) => Expanded(
+                    child: Center(
+                      child: Text(
+                        d,
+                        style: const TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.textFaint,
+                        ),
+                      ),
+                    ),
+                  ),
+                )
+                .toList(),
+          ),
+          const SizedBox(height: 8),
+
+          // Calendar Weeks
+          for (int row = 0; row < totalCells ~/ 7; row++)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 3),
+              child: Row(
+                children: List.generate(7, (col) {
+                  final cellIndex = row * 7 + col;
+                  final dayNum = cellIndex - leadingBlanks + 1;
+                  if (dayNum < 1 || dayNum > daysInMonth) {
+                    return const Expanded(child: SizedBox(height: 36));
+                  }
+
+                  final dateKey = '$monthPrefix${dayNum.toString().padLeft(2, '0')}';
+                  final visited = visitSet.contains(dateKey);
+                  final isToday = dateKey == todayKey;
+                  final isFuture = dateKey.compareTo(todayKey) > 0;
+
+                  return Expanded(
+                    child: Center(
+                      child: Container(
+                        width: 34,
+                        height: 34,
+                        alignment: Alignment.center,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: visited
+                              ? AppColors.primary
+                              : isToday
+                                  ? AppColors.primarySoft
+                                  : Colors.transparent,
+                          border: isToday
+                              ? Border.all(
+                                  color: visited ? AppColors.accent : AppColors.primary,
+                                  width: 1.8,
+                                )
+                              : null,
+                        ),
+                        child: Text(
+                          '$dayNum',
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: visited || isToday ? FontWeight.w700 : FontWeight.w500,
+                            color: visited
+                                ? Colors.white
+                                : isToday
+                                    ? AppColors.primary
+                                    : isFuture
+                                        ? AppColors.textFaint
+                                        : AppColors.text,
+                          ),
+                        ),
+                      ),
+                    ),
+                  );
+                }),
+              ),
+            ),
+
+          const SizedBox(height: 12),
+          const Divider(height: 1, color: AppColors.border),
+          const SizedBox(height: 10),
+
+          // Legend
+          Row(
+            children: [
+              Container(
+                width: 10,
+                height: 10,
+                decoration: const BoxDecoration(
+                  color: AppColors.primary,
+                  shape: BoxShape.circle,
+                ),
+              ),
+              const SizedBox(width: 6),
+              const Text(
+                'Visited',
+                style: TextStyle(fontSize: 12, color: AppColors.textMuted),
+              ),
+              const SizedBox(width: 16),
+              Container(
+                width: 10,
+                height: 10,
+                decoration: BoxDecoration(
+                  color: AppColors.primarySoft,
+                  shape: BoxShape.circle,
+                  border: Border.all(color: AppColors.primary, width: 1.5),
+                ),
+              ),
+              const SizedBox(width: 6),
+              const Text(
+                'Today',
+                style: TextStyle(fontSize: 12, color: AppColors.textMuted),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _monthNavButton({required IconData icon, VoidCallback? onTap}) {
+    final disabled = onTap == null;
+    return Material(
+      color: AppColors.surfaceAlt,
+      borderRadius: BorderRadius.circular(AppRadius.sm),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(AppRadius.sm),
+        onTap: onTap,
+        child: SizedBox(
+          width: 34,
+          height: 34,
+          child: Icon(
+            icon,
+            size: 20,
+            color: disabled ? AppColors.textFaint : AppColors.text,
+          ),
+        ),
+      ),
+    );
   }
 
   @override
@@ -55,7 +253,6 @@ class ActivityTab extends StatelessWidget {
 
     final attendance = gym.attendance;
     final visitSet = (attendance?.visitDates ?? []).toSet();
-    final grid = _buildGrid(visitSet);
     final todayKey = AppFormat.todayKey();
 
     return Scaffold(
@@ -69,7 +266,7 @@ class ActivityTab extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              const ScreenTitle(title: 'Activity', subtitle: 'Your gym visits and streaks'),
+              const ScreenTitle(title: 'Check-ins', subtitle: 'Your gym visits and streaks'),
               const SizedBox(height: 16),
 
               // Stat Tiles
@@ -92,94 +289,8 @@ class ActivityTab extends StatelessWidget {
               ),
               const SizedBox(height: 20),
 
-              // Heatmap Card
-              AppCard(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      'Consistency',
-                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      'Your gym visits over the last $weeks weeks',
-                      style: const TextStyle(fontSize: 13, color: AppColors.textMuted),
-                    ),
-                    const SizedBox(height: 16),
-
-                    // Grid Columns
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: grid.map((col) {
-                        return Expanded(
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 1.5),
-                            child: Column(
-                              children: col.map((cell) {
-                                final isToday = cell.date == todayKey;
-                                return AspectRatio(
-                                  aspectRatio: 1,
-                                  child: Container(
-                                    margin: const EdgeInsets.symmetric(vertical: 1.5),
-                                    decoration: BoxDecoration(
-                                      color: cell.visited
-                                          ? AppColors.primary
-                                          : cell.future
-                                              ? Colors.transparent
-                                              : AppColors.surfaceAlt,
-                                      borderRadius: BorderRadius.circular(3),
-                                      border: isToday
-                                          ? Border.all(color: AppColors.accent, width: 2)
-                                          : cell.future
-                                              ? Border.all(color: AppColors.border, width: 0.8)
-                                              : null,
-                                    ),
-                                  ),
-                                );
-                              }).toList(),
-                            ),
-                          ),
-                        );
-                      }).toList(),
-                    ),
-                    const SizedBox(height: 14),
-
-                    // Legend
-                    Row(
-                      children: [
-                        Container(
-                          width: 10,
-                          height: 10,
-                          decoration: BoxDecoration(
-                            color: AppColors.surfaceAlt,
-                            borderRadius: BorderRadius.circular(2),
-                          ),
-                        ),
-                        const SizedBox(width: 6),
-                        const Text(
-                          'No visit',
-                          style: TextStyle(fontSize: 12, color: AppColors.textMuted),
-                        ),
-                        const SizedBox(width: 14),
-                        Container(
-                          width: 10,
-                          height: 10,
-                          decoration: BoxDecoration(
-                            color: AppColors.primary,
-                            borderRadius: BorderRadius.circular(2),
-                          ),
-                        ),
-                        const SizedBox(width: 6),
-                        const Text(
-                          'Visited',
-                          style: TextStyle(fontSize: 12, color: AppColors.textMuted),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
+              // Monthly Visit Calendar Card
+              _buildCalendarCard(visitSet, todayKey),
               const SizedBox(height: 24),
 
               // Recent Visits

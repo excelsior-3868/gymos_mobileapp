@@ -82,9 +82,27 @@ class MembershipScreen extends StatelessWidget {
                               ],
                             ),
                           ),
-                          AppBadge(
-                            text: isExpired ? 'Expired' : AppFormat.titleCase(current.status),
-                            tone: isExpired ? BadgeTone.danger : getStatusTone(current.status),
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.end,
+                            children: [
+                              AppBadge(
+                                text: isExpired ? 'Expired' : AppFormat.titleCase(current.status),
+                                tone: isExpired ? BadgeTone.danger : getStatusTone(current.status),
+                              ),
+                              if (!isExpired) ...[
+                                const SizedBox(height: 4),
+                                Text(
+                                  current.daysLeft == 0
+                                      ? 'Expires today'
+                                      : '${current.daysLeft} day${current.daysLeft == 1 ? '' : 's'} left',
+                                  style: const TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600,
+                                    color: AppColors.textMuted,
+                                  ),
+                                ),
+                              ],
+                            ],
                           ),
                         ],
                       ),
@@ -113,21 +131,22 @@ class MembershipScreen extends StatelessWidget {
                           ),
                         ],
                       ),
-                      const SizedBox(height: 16),
 
-                      // Facts Grid
-                      Wrap(
-                        spacing: 10,
-                        runSpacing: 10,
-                        children: [
-                          _buildFactTile('Days left', isExpired ? '0' : '${current.daysLeft}'),
-                          _buildFactTile('Access', AppFormat.titleCase(current.package.accessScope)),
-                          if (current.totalSessions != null)
-                            _buildFactTile('Sessions', '${current.usedSessions ?? 0}/${current.totalSessions}'),
-                          if (current.package.startTime != null && current.package.endTime != null)
-                            _buildFactTile('Hours', '${current.package.startTime}–${current.package.endTime}'),
-                        ],
-                      ),
+                      // Optional Facts Grid (Sessions / Hours)
+                      if (current.totalSessions != null ||
+                          (current.package.startTime != null && current.package.endTime != null)) ...[
+                        const SizedBox(height: 16),
+                        Wrap(
+                          spacing: 10,
+                          runSpacing: 10,
+                          children: [
+                            if (current.totalSessions != null)
+                              _buildFactTile('Sessions', '${current.usedSessions ?? 0}/${current.totalSessions}'),
+                            if (current.package.startTime != null && current.package.endTime != null)
+                              _buildFactTile('Hours', '${current.package.startTime}–${current.package.endTime}'),
+                          ],
+                        ),
+                      ],
 
                       if (current.package.includedServices.isNotEmpty) ...[
                         const SizedBox(height: 16),

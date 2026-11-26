@@ -1,6 +1,9 @@
+import 'dart:async';
+import 'package:flutter/painting.dart';
 import 'package:flutter/foundation.dart';
 import '../models/models.dart';
 import '../services/api_service.dart';
+import '../services/config.dart';
 
 class GymProvider extends ChangeNotifier {
   MeResponse? _me;
@@ -75,14 +78,57 @@ class GymProvider extends ChangeNotifier {
     ]);
   }
 
-  Future<void> fetchMe() async {
+  Future<void> _precacheAvatar(String? uri, {bool forceReload = false}) async {
+    final url = AppConfig.mediaUrl(uri);
+    if (url == null || url.isEmpty) return;
+    try {
+      final provider = NetworkImage(url);
+      if (forceReload) {
+        await provider.evict();
+      }
+      final completer = Completer<void>();
+      final stream = provider.resolve(ImageConfiguration.empty);
+      late final ImageStreamListener listener;
+      listener = ImageStreamListener(
+        (_, _) {
+          stream.removeListener(listener);
+          if (!completer.isCompleted) completer.complete();
+        },
+        onError: (_, _) {
+          stream.removeListener(listener);
+          if (!completer.isCompleted) completer.complete();
+        },
+      );
+      stream.addListener(listener);
+      await completer.future.timeout(
+        const Duration(seconds: 4),
+        onTimeout: () {
+          stream.removeListener(listener);
+        },
+      );
+    } catch (_) {
+      // Never block home screen rendering if avatar prefetch fails.
+    }
+  }
+
+  Future<void> fetchMe({bool forceAvatarReload = false}) async {
     _isLoadingMe = true;
     _meError = null;
     notifyListeners();
     try {
       final res = await ApiService.get('/portal/me');
       if (res != null) {
-        _me = MeResponse.fromJson(res);
+        final nextMe = MeResponse.fromJson(res);
+        final prevPhoto = _me?.member.photoUrl;
+        final nextPhoto = nextMe.member.photoUrl;
+        // Pre-load the avatar into Flutter's ImageCache before revealing the home page
+        // so it renders on the very first frame alongside the rest of the header.
+        if (nextPhoto != null &&
+            nextPhoto.isNotEmpty &&
+            (_me == null || nextPhoto != prevPhoto || forceAvatarReload)) {
+          await _precacheAvatar(nextPhoto, forceReload: forceAvatarReload);
+        }
+        _me = nextMe;
       }
     } catch (e) {
       _meError = e.toString();
@@ -264,7 +310,7 @@ class GymProvider extends ChangeNotifier {
 
   Future<void> uploadProfilePhoto(String filePath, {String mime = 'image/jpeg'}) async {
     await ApiService.uploadFile('/portal/me/photo', 'photo', filePath, mime: mime);
-    await fetchMe();
+    await fetchMe(forceAvatarReload: true);
   }
 
   Future<void> removeProfilePhoto() async {

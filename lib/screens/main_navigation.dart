@@ -1,8 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
+import '../providers/auth_provider.dart';
 import '../providers/gym_provider.dart';
+import '../services/push_notification_service.dart';
 import '../theme/app_theme.dart';
+import '../widgets/biometric_setup_sheet.dart';
+import 'sub_screens/notifications_screen.dart';
 import 'tabs/activity_tab.dart';
 import 'tabs/home_tab.dart';
 import 'tabs/offers_tab.dart';
@@ -18,13 +22,58 @@ class MainNavigation extends StatefulWidget {
 
 class _MainNavigationState extends State<MainNavigation> {
   int _currentIndex = 0;
+  bool _checkedBiometricPrompt = false;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      Provider.of<GymProvider>(context, listen: false).fetchAll();
+      final gym = Provider.of<GymProvider>(context, listen: false);
+      gym.fetchAll();
+      _maybePromptBiometricSetup();
+
+      PushNotificationService.onForegroundMessage = () {
+        if (!mounted) return;
+        gym.fetchNotifications();
+        gym.fetchMe();
+      };
+      PushNotificationService.onNotificationTapped = () {
+        if (!mounted) return;
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => const NotificationsScreen()),
+        );
+      };
+      PushNotificationService.consumePendingTap();
     });
+  }
+
+  @override
+  void dispose() {
+    PushNotificationService.onForegroundMessage = null;
+    PushNotificationService.onNotificationTapped = null;
+    super.dispose();
+  }
+
+  Future<void> _maybePromptBiometricSetup() async {
+    if (_checkedBiometricPrompt || !mounted) return;
+    _checkedBiometricPrompt = true;
+
+    final auth = Provider.of<AuthProvider>(context, listen: false);
+    await auth.refreshBiometricStatus();
+    if (!mounted || !auth.shouldPromptBiometricSetup) return;
+
+    await Future.delayed(const Duration(milliseconds: 500));
+    if (!mounted || !auth.shouldPromptBiometricSetup) return;
+
+    final gym = Provider.of<GymProvider>(context, listen: false);
+    final username = auth.savedRegistrationNumber ?? gym.me?.member.registrationNumber;
+
+    await BiometricSetupSheet.show(
+      context,
+      username: username,
+      isFirstTimePrompt: true,
+    );
   }
 
   void _onTabSelected(int index) {
@@ -64,9 +113,9 @@ class _MainNavigationState extends State<MainNavigation> {
         child: Row(
           children: [
             _buildNavItem(0, Icons.home_outlined, Icons.home, 'Home'),
-            _buildNavItem(1, Icons.fitness_center_outlined, Icons.fitness_center, 'Train'),
+            _buildNavItem(1, Icons.fitness_center_outlined, Icons.fitness_center, 'Train & Diet'),
             _buildNavItem(2, Icons.local_offer_outlined, Icons.local_offer, 'Offers'),
-            _buildNavItem(3, Icons.timeline_outlined, Icons.timeline, 'Activity'),
+            _buildNavItem(3, Icons.event_available_outlined, Icons.event_available, 'Check-ins'),
             _buildNavItem(4, Icons.person_outline, Icons.person, 'Profile'),
           ],
         ),
@@ -78,7 +127,7 @@ class _MainNavigationState extends State<MainNavigation> {
     final isSelected = _currentIndex == index;
 
     return Expanded(
-      flex: isSelected ? 3 : 2,
+      flex: isSelected ? (label.length > 8 ? 5 : 3) : 2,
       child: Semantics(
         button: true,
         selected: isSelected,
@@ -92,7 +141,7 @@ class _MainNavigationState extends State<MainNavigation> {
               duration: const Duration(milliseconds: 220),
               curve: Curves.easeOut,
               height: 44,
-              padding: EdgeInsets.symmetric(horizontal: isSelected ? 14 : 10),
+              padding: EdgeInsets.symmetric(horizontal: isSelected ? 12 : 10),
               decoration: BoxDecoration(
                 gradient: isSelected
                     ? const LinearGradient(

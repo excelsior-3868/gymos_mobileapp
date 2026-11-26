@@ -76,11 +76,11 @@ class HomeTab extends StatelessWidget {
             children: [
               // Header: identity + notifications
               _buildHeader(context, member, me),
-              const SizedBox(height: 22),
+              const SizedBox(height: 14),
 
               // Membership Hero Banner
               _buildMembershipHero(context, membership, visitedToday),
-              const SizedBox(height: 16),
+              const SizedBox(height: 12),
               for (final offer in gym.offers.where((o) => o.type == "renewal_bonus")) ...[
                 _buildOfferBanner(context, offer),
                 const SizedBox(height: 12),
@@ -176,7 +176,7 @@ class HomeTab extends StatelessWidget {
               ],
 
               // Stat Tiles
-              const SectionHeader(title: 'Attendance', icon: Icons.event_available_outlined),
+              const SectionHeader(title: 'Check-ins', icon: Icons.event_available_outlined),
               const SizedBox(height: 12),
               Row(
                 children: [
@@ -397,7 +397,7 @@ class HomeTab extends StatelessWidget {
 
   Widget _buildHeader(BuildContext context, Member member, MeResponse me) {
     final unread = me.unreadNotifications;
-    final firstName = member.fullName.trim().split(' ').first;
+    final displayName = member.fullName.trim();
 
     return Row(
       children: [
@@ -435,7 +435,7 @@ class HomeTab extends StatelessWidget {
                         ),
                         const SizedBox(height: 1),
                         Text(
-                          firstName,
+                          displayName,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: const TextStyle(
@@ -557,7 +557,7 @@ class HomeTab extends StatelessWidget {
     return Material(
       color: Colors.transparent,
       child: InkWell(
-        borderRadius: BorderRadius.circular(AppRadius.lg),
+        borderRadius: BorderRadius.circular(AppRadius.sm),
         onTap: onNavigateToOffers,
         child: Ink(
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
@@ -567,7 +567,7 @@ class HomeTab extends StatelessWidget {
               begin: Alignment.centerLeft,
               end: Alignment.centerRight,
             ),
-            borderRadius: BorderRadius.circular(AppRadius.lg),
+            borderRadius: BorderRadius.circular(AppRadius.sm),
           ),
           child: Row(
             children: [
@@ -640,7 +640,7 @@ class HomeTab extends StatelessWidget {
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
           ),
-          borderRadius: BorderRadius.circular(AppRadius.xl),
+          borderRadius: BorderRadius.circular(AppRadius.md),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -704,14 +704,14 @@ class HomeTab extends StatelessWidget {
         );
       },
       child: Container(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
       decoration: BoxDecoration(
         gradient: LinearGradient(
           colors: gradientColors,
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
-        borderRadius: BorderRadius.circular(AppRadius.xl),
+        borderRadius: BorderRadius.circular(AppRadius.md),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withOpacity(0.12),
@@ -773,13 +773,13 @@ class HomeTab extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 10),
           AppProgressBar(
             value: isExpired ? 1.0 : m.progress,
             color: Colors.white,
             track: Colors.white.withOpacity(0.25),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 6),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
@@ -794,10 +794,10 @@ class HomeTab extends StatelessWidget {
             ],
           ),
           if (visitedToday) ...[
-            const SizedBox(height: 12),
+            const SizedBox(height: 8),
             _buildTodayCheckIn(),
           ],
-          const SizedBox(height: 10),
+          const SizedBox(height: 6),
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [

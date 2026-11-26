@@ -11,11 +11,13 @@ import 'theme/app_theme.dart';
 import 'widgets/ui_components.dart';
 
 import 'services/config.dart';
+import 'services/push_notification_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   await AppConfig.init();
+  await PushNotificationService.init();
 
   // Set system navigation & status bar style
   SystemChrome.setSystemUIOverlayStyle(
@@ -62,20 +64,26 @@ class AuthGate extends StatelessWidget {
     final auth = Provider.of<AuthProvider>(context);
 
     if (!auth.isReady) {
-      return const Scaffold(
-        backgroundColor: AppColors.bg,
+      return Scaffold(
+        backgroundColor: Colors.white,
         body: Center(
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              IconBubble(
-                name: Icons.fitness_center,
-                size: 64,
-                color: AppColors.primary,
-                bg: AppColors.primarySoft,
+              Image.asset(
+                'assets/images/gym_logo.png',
+                width: 180,
+                height: 180,
+                fit: BoxFit.contain,
+                errorBuilder: (_, _, _) => const IconBubble(
+                  name: Icons.fitness_center,
+                  size: 64,
+                  color: AppColors.primary,
+                  bg: AppColors.primarySoft,
+                ),
               ),
-              SizedBox(height: 20),
-              CircularProgressIndicator(
+              const SizedBox(height: 20),
+              const CircularProgressIndicator(
                 strokeWidth: 2.5,
                 valueColor: AlwaysStoppedAnimation<Color>(AppColors.primary),
               ),

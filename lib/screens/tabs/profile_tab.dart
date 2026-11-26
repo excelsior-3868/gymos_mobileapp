@@ -7,6 +7,7 @@ import '../../providers/branding_provider.dart';
 import '../../providers/gym_provider.dart';
 import '../../theme/app_theme.dart';
 import '../../utils/format.dart';
+import '../../widgets/biometric_setup_sheet.dart';
 import '../../widgets/ui_components.dart';
 import '../change_password_screen.dart';
 import '../sub_screens/billing_screen.dart';
@@ -19,11 +20,16 @@ class ProfileTab extends StatelessWidget {
   const ProfileTab({super.key});
 
   Future<void> _confirmLogout(BuildContext context, String gymName) async {
+    final auth = Provider.of<AuthProvider>(context, listen: false);
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Log out?'),
-        content: const Text('You will need a new SMS code to sign back in.'),
+        content: Text(
+          auth.canLoginWithBiometrics
+              ? 'You can sign back in with ${auth.biometricLabel} or your password.'
+              : 'You will need your username and password to sign back in.',
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
@@ -103,6 +109,7 @@ class ProfileTab extends StatelessWidget {
   Widget build(BuildContext context) {
     final gym = Provider.of<GymProvider>(context);
     final brand = Provider.of<BrandingProvider>(context);
+    final auth = Provider.of<AuthProvider>(context);
     final topPadding = MediaQuery.of(context).padding.top;
     final bottomPadding = MediaQuery.of(context).padding.bottom;
 
@@ -305,6 +312,87 @@ class ProfileTab extends StatelessWidget {
                       onTap: () => Navigator.push(
                         context,
                         MaterialPageRoute(builder: (_) => const ChangePasswordScreen(isForced: false)),
+                      ),
+                    ),
+                    const AppDivider(),
+                    _buildRow(
+                      icon: auth.biometricLabel.toLowerCase().contains('face')
+                          ? Icons.face_rounded
+                          : Icons.fingerprint_rounded,
+                      title: '${auth.biometricLabel} login',
+                      subtitle: auth.biometricAvailable
+                          ? (auth.biometricEnabled
+                              ? 'Enabled for quick sign-in'
+                              : 'Use ${auth.biometricLabel} to sign in')
+                          : auth.biometricSupported
+                              ? 'Enroll fingerprint/Face ID in device settings first'
+                              : 'Not available on this device',
+                      hasChevron: false,
+                      onTap: auth.biometricAvailable
+                          ? null
+                          : () async {
+                              await auth.refreshBiometricStatus();
+                              if (!context.mounted) return;
+                              if (auth.biometricAvailable) {
+                                await BiometricSetupSheet.show(
+                                  context,
+                                  username: member.registrationNumber,
+                                  requirePassword: true,
+                                );
+                              } else {
+                                await showDialog<void>(
+                                  context: context,
+                                  builder: (ctx) => AlertDialog(
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(AppRadius.md),
+                                    ),
+                                    title: Text(
+                                      auth.biometricSupported
+                                          ? 'Biometrics not set up'
+                                          : 'Biometrics unavailable',
+                                    ),
+                                    content: Text(
+                                      auth.biometricSupported
+                                          ? 'No biometrics enrolled yet. Add a Fingerprint or Face ID in your device Settings first.'
+                                          : 'Biometric authentication is not supported on this device.',
+                                    ),
+                                    actions: [
+                                      TextButton(
+                                        onPressed: () => Navigator.pop(ctx),
+                                        style: TextButton.styleFrom(
+                                          foregroundColor: AppColors.primary,
+                                        ),
+                                        child: const Text('OK'),
+                                      ),
+                                    ],
+                                  ),
+                                );
+                              }
+                            },
+                      right: Switch.adaptive(
+                        value: auth.biometricAvailable && auth.biometricEnabled,
+                        activeTrackColor: AppColors.primary,
+                        onChanged: !auth.biometricAvailable
+                            ? null
+                            : (enabled) async {
+                                HapticFeedback.selectionClick();
+                                if (enabled) {
+                                  await BiometricSetupSheet.show(
+                                    context,
+                                    username: member.registrationNumber,
+                                    requirePassword: true,
+                                  );
+                                } else {
+                                  await auth.disableBiometric();
+                                  if (context.mounted) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(
+                                        content: Text('${auth.biometricLabel} login disabled.'),
+                                      ),
+                                    );
+                                  }
+                                }
+                              },
                       ),
                     ),
                   ],

@@ -19,13 +19,50 @@ class _LoginScreenState extends State<LoginScreen> {
 
   bool _obscurePassword = true;
   bool _isLoading = false;
+  bool _isBiometricLoading = false;
   String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!mounted) return;
+      final auth = Provider.of<AuthProvider>(context, listen: false);
+      if (auth.savedRegistrationNumber != null && _usernameController.text.isEmpty) {
+        _usernameController.text = auth.savedRegistrationNumber!;
+      }
+      await auth.refreshBiometricStatus();
+    });
+  }
 
   @override
   void dispose() {
     _usernameController.dispose();
     _passwordController.dispose();
     super.dispose();
+  }
+
+  Future<void> _handleBiometricLogin() async {
+    setState(() {
+      _isBiometricLoading = true;
+      _error = null;
+    });
+
+    try {
+      final auth = Provider.of<AuthProvider>(context, listen: false);
+      final ok = await auth.loginWithBiometrics();
+      if (ok) {
+        HapticFeedback.heavyImpact();
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _error = e.toString());
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isBiometricLoading = false);
+      }
+    }
   }
 
   Future<void> _handleLogin() async {
@@ -116,16 +153,24 @@ class _LoginScreenState extends State<LoginScreen> {
                         ? Image.network(
                             brand.logoUrl!,
                             fit: BoxFit.contain,
-                            errorBuilder: (_, __, ___) => const Icon(
+                            errorBuilder: (_, _, _) => Image.asset(
+                              'assets/images/gym_logo.png',
+                              fit: BoxFit.contain,
+                              errorBuilder: (_, _, _) => const Icon(
+                                Icons.fitness_center,
+                                color: AppColors.primary,
+                                size: 32,
+                              ),
+                            ),
+                          )
+                        : Image.asset(
+                            'assets/images/gym_logo.png',
+                            fit: BoxFit.contain,
+                            errorBuilder: (_, _, _) => const Icon(
                               Icons.fitness_center,
                               color: AppColors.primary,
                               size: 32,
                             ),
-                          )
-                        : const Icon(
-                            Icons.fitness_center,
-                            color: AppColors.primary,
-                            size: 32,
                           ),
                   ),
                   const SizedBox(height: 18),
@@ -282,6 +327,49 @@ class _LoginScreenState extends State<LoginScreen> {
                     title: 'Log In',
                     loading: _isLoading,
                     onPress: _handleLogin,
+                  ),
+
+                  Builder(
+                    builder: (ctx) {
+                      final auth = Provider.of<AuthProvider>(ctx);
+                      if (!auth.canLoginWithBiometrics) return const SizedBox.shrink();
+                      final isFace = auth.biometricLabel.toLowerCase().contains('face');
+                      return Padding(
+                        padding: const EdgeInsets.only(top: 12),
+                        child: OutlinedButton.icon(
+                          onPressed: (_isLoading || _isBiometricLoading) ? null : _handleBiometricLogin,
+                          style: OutlinedButton.styleFrom(
+                            minimumSize: const Size.fromHeight(52),
+                            foregroundColor: AppColors.primary,
+                            side: const BorderSide(color: AppColors.primary, width: 1.5),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(AppRadius.md),
+                            ),
+                            backgroundColor: AppColors.primarySoft.withValues(alpha: 0.45),
+                          ),
+                          icon: _isBiometricLoading
+                              ? const SizedBox(
+                                  width: 18,
+                                  height: 18,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    color: AppColors.primary,
+                                  ),
+                                )
+                              : Icon(
+                                  isFace ? Icons.face_rounded : Icons.fingerprint_rounded,
+                                  size: 22,
+                                ),
+                          label: Text(
+                            'Log in with ${auth.biometricLabel}',
+                            style: const TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                      );
+                    },
                   ),
 
                   const SizedBox(height: 24),

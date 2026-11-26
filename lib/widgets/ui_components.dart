@@ -344,7 +344,8 @@ class AppAvatar extends StatelessWidget {
               width: size,
               height: size,
               fit: BoxFit.cover,
-              errorBuilder: (_, __, ___) => _defaultAvatar(),
+              gaplessPlayback: true,
+              errorBuilder: (_, _, _) => _defaultAvatar(),
             )
           : _defaultAvatar(),
     );

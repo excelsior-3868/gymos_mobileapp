@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "420389756295",
+    "project_id": "fitmaxim-72a3d",
+    "storage_bucket": "fitmaxim-72a3d.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:420389756295:android:24a1d6ad9ffaeb92d50722",
+        "android_client_info": {
+          "package_name": "com.gymos.member.gymos.mobile"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAYFhjmbKW_V98Oj5HiIoKHB1EGfbuR-i0"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
