@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
@@ -31,12 +32,13 @@ class PushNotificationService {
   static Future<void>? _initFuture;
   static String? _currentToken;
   static bool _hasPendingTap = false;
+  static Map<String, dynamic> _pendingTapData = const {};
 
   /// Called when a push notification arrives while the app is in the foreground.
-  static VoidCallback? onForegroundMessage;
+  static void Function(Map<String, dynamic> data)? onForegroundMessage;
 
   /// Called when the user taps a push notification (foreground, background, or terminated).
-  static VoidCallback? onNotificationTapped;
+  static void Function(Map<String, dynamic> data)? onNotificationTapped;
 
   static bool get isInitialized => _initialized;
   static String? get currentToken => _currentToken;
@@ -79,7 +81,7 @@ class PushNotificationService {
       );
       await _localNotifications.initialize(
         initSettings,
-        onDidReceiveNotificationResponse: (_) => _handleTap(),
+        onDidReceiveNotificationResponse: (r) => _handleTap(_decodePayload(r.payload)),
       );
 
       if (Platform.isAndroid) {
@@ -90,7 +92,7 @@ class PushNotificationService {
 
       // Foreground messages
       FirebaseMessaging.onMessage.listen((RemoteMessage message) {
-        onForegroundMessage?.call();
+        onForegroundMessage?.call(Map<String, dynamic>.from(message.data));
         // On iOS, setForegroundNotificationPresentationOptions already renders the system banner.
         if (Platform.isAndroid && message.notification != null) {
           _showLocalNotification(message);
@@ -98,7 +100,7 @@ class PushNotificationService {
       });
 
       // Notification tapped from background
-      FirebaseMessaging.onMessageOpenedApp.listen((_) => _handleTap());
+      FirebaseMessaging.onMessageOpenedApp.listen((m) => _handleTap(Map<String, dynamic>.from(m.data)));
 
       // Notification tapped from terminated state
       final initialMessage = await FirebaseMessaging.instance
@@ -106,6 +108,7 @@ class PushNotificationService {
           .timeout(const Duration(seconds: 5), onTimeout: () => null);
       if (initialMessage != null) {
         _hasPendingTap = true;
+        _pendingTapData = Map<String, dynamic>.from(initialMessage.data);
       }
 
       // Keep backend updated when FCM rotates the device token
@@ -125,16 +128,28 @@ class PushNotificationService {
   static void consumePendingTap() {
     if (_hasPendingTap) {
       _hasPendingTap = false;
-      onNotificationTapped?.call();
+      final data = _pendingTapData;
+      _pendingTapData = const {};
+      onNotificationTapped?.call(data);
     }
   }
 
-  static void _handleTap() {
+  static void _handleTap(Map<String, dynamic> data) {
     if (onNotificationTapped != null) {
-      onNotificationTapped!.call();
+      onNotificationTapped!.call(data);
     } else {
       _hasPendingTap = true;
+      _pendingTapData = data;
     }
+  }
+
+  static Map<String, dynamic> _decodePayload(String? payload) {
+    if (payload == null || payload.isEmpty) return const {};
+    try {
+      final decoded = jsonDecode(payload);
+      if (decoded is Map) return Map<String, dynamic>.from(decoded);
+    } catch (_) {}
+    return const {};
   }
 
   static Future<void> _showLocalNotification(RemoteMessage message) async {
@@ -151,6 +166,11 @@ class PushNotificationService {
           channelDescription: _androidChannel.description,
           importance: Importance.high,
           priority: Priority.high,
+          // Show the whole message (expanded) instead of a single truncated line.
+          styleInformation: BigTextStyleInformation(
+            notif.body ?? '',
+            contentTitle: notif.title ?? 'FitMaxim',
+          ),
         ),
         iOS: const DarwinNotificationDetails(
           presentAlert: true,
@@ -158,6 +178,7 @@ class PushNotificationService {
           presentSound: true,
         ),
       ),
+      payload: jsonEncode(message.data),
     );
   }
 

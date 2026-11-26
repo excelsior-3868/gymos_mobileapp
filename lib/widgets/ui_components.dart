@@ -16,8 +16,9 @@ BadgeTone getStatusTone(String? status) {
       return BadgeTone.success;
     case 'partial':
     case 'pending':
-    case 'frozen':
       return BadgeTone.warning;
+    case 'frozen':
+      return BadgeTone.info;
     case 'expired':
     case 'unpaid':
     case 'cancelled':

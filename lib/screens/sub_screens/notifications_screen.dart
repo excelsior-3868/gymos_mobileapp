@@ -4,23 +4,33 @@ import 'package:provider/provider.dart';
 import '../../providers/gym_provider.dart';
 import '../../theme/app_theme.dart';
 import '../../utils/format.dart';
+import '../../widgets/engagement_widgets.dart';
 import '../../widgets/ui_components.dart';
+
+({IconData icon, Color color, Color bg}) notificationTypeStyle(String? type) {
+  switch (type) {
+    case 'expiry':
+      return (icon: Icons.hourglass_top_outlined, color: AppColors.warning, bg: AppColors.warningSoft);
+    case 'billing':
+      return (icon: Icons.receipt_long_outlined, color: AppColors.info, bg: AppColors.infoSoft);
+    case 'visit':
+      return (icon: Icons.directions_walk_outlined, color: AppColors.success, bg: AppColors.successSoft);
+    case 'freeze':
+      return (icon: Icons.ac_unit, color: kFreeze, bg: kFreezeSoft);
+    case 'award':
+      return (icon: Icons.emoji_events_outlined, color: kGold, bg: kGoldSoft);
+    case 'event':
+      return (icon: Icons.event_outlined, color: kIndigo, bg: kIndigoSoft);
+    case 'notice':
+      return (icon: Icons.campaign_outlined, color: AppColors.info, bg: AppColors.infoSoft);
+    default:
+      return (icon: Icons.campaign_outlined, color: AppColors.primary, bg: AppColors.primarySoft);
+  }
+}
 
 class NotificationsScreen extends StatelessWidget {
   const NotificationsScreen({super.key});
 
-  ({IconData icon, Color color, Color bg}) _getIconForType(String? type) {
-    switch (type) {
-      case 'expiry':
-        return (icon: Icons.hourglass_top_outlined, color: AppColors.warning, bg: AppColors.warningSoft);
-      case 'billing':
-        return (icon: Icons.receipt_long_outlined, color: AppColors.info, bg: AppColors.infoSoft);
-      case 'visit':
-        return (icon: Icons.directions_walk_outlined, color: AppColors.success, bg: AppColors.successSoft);
-      default:
-        return (icon: Icons.campaign_outlined, color: AppColors.primary, bg: AppColors.primarySoft);
-    }
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -82,7 +92,7 @@ class NotificationsScreen extends StatelessWidget {
               else
                 ...notifications.map((n) {
                   final isNew = n.status == 'unread';
-                  final t = _getIconForType(n.type);
+                  final t = notificationTypeStyle(n.type);
 
                   return Padding(
                     padding: const EdgeInsets.only(bottom: 10),

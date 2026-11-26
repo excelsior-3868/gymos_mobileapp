@@ -1,11 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
+import '../models/models.dart';
 import '../providers/auth_provider.dart';
 import '../providers/gym_provider.dart';
 import '../services/push_notification_service.dart';
 import '../theme/app_theme.dart';
 import '../widgets/biometric_setup_sheet.dart';
+import '../widgets/engagement_widgets.dart';
+import 'sub_screens/freeze_request_screen.dart';
+import 'sub_screens/membership_screen.dart';
 import 'sub_screens/notifications_screen.dart';
 import 'tabs/activity_tab.dart';
 import 'tabs/home_tab.dart';
@@ -30,22 +34,73 @@ class _MainNavigationState extends State<MainNavigation> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final gym = Provider.of<GymProvider>(context, listen: false);
       gym.fetchAll();
-      _maybePromptBiometricSetup();
+      _runLoginPrompts();
 
-      PushNotificationService.onForegroundMessage = () {
+      PushNotificationService.onForegroundMessage = (data) {
         if (!mounted) return;
-        gym.fetchNotifications();
-        gym.fetchMe();
+        if (_engagementTypes.contains(data['type']?.toString())) {
+          gym.refreshEngagement();
+        } else {
+          gym.fetchNotifications();
+          gym.fetchMe();
+        }
       };
-      PushNotificationService.onNotificationTapped = () {
+      PushNotificationService.onNotificationTapped = (data) {
         if (!mounted) return;
-        Navigator.push(
-          context,
-          MaterialPageRoute(builder: (_) => const NotificationsScreen()),
-        );
+        _routeFromPush(data);
       };
       PushNotificationService.consumePendingTap();
     });
+  }
+
+  static const _engagementTypes = {'freeze', 'award', 'event', 'notice'};
+
+  void _routeFromPush(Map<String, dynamic> data) {
+    final screen = data['screen']?.toString();
+    final Widget target;
+    if (screen == 'noticeboard') {
+      target = const NotificationsScreen();
+    } else if (screen == 'membership') {
+      target = data['freezeRequestId'] != null ? const FreezeRequestScreen() : const MembershipScreen();
+    } else {
+      target = const NotificationsScreen();
+    }
+    Navigator.push(context, MaterialPageRoute(builder: (_) => target));
+  }
+
+  Future<void> _runLoginPrompts() async {
+    await _maybePromptBiometricSetup();
+    await _maybeShowSpotlight();
+  }
+
+  /// Shows the Member of the Month + notices sheet once per login session.
+  Future<void> _maybeShowSpotlight() async {
+    if (!mounted) return;
+    final auth = Provider.of<AuthProvider>(context, listen: false);
+    if (auth.spotlightShownThisSession) return;
+
+    final gym = Provider.of<GymProvider>(context, listen: false);
+    await gym.fetchNoticeboard();
+    if (!mounted || auth.spotlightShownThisSession) return;
+
+    final raw = gym.noticeboard;
+    if (raw == null) return;
+    final data = NoticeboardResponse(
+      notices: raw.notices,
+      upcomingEvents: raw.upcomingEvents,
+      memberOfTheMonth: gym.memberOfTheMonth, // null once it is older than a day
+    );
+    if (data.memberOfTheMonth == null && data.notices.isEmpty) return;
+
+    auth.spotlightShownThisSession = true;
+    await LoginSpotlight.show(
+      context,
+      data: data,
+      onViewNotifications: () {
+        if (!mounted) return;
+        Navigator.push(context, MaterialPageRoute(builder: (_) => const NotificationsScreen()));
+      },
+    );
   }
 
   @override

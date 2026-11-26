@@ -3,7 +3,9 @@ import 'package:provider/provider.dart';
 import '../../providers/gym_provider.dart';
 import '../../theme/app_theme.dart';
 import '../../utils/format.dart';
+import '../../widgets/engagement_widgets.dart';
 import '../../widgets/ui_components.dart';
+import 'freeze_request_screen.dart';
 
 class MembershipScreen extends StatelessWidget {
   const MembershipScreen({super.key});
@@ -19,6 +21,10 @@ class MembershipScreen extends StatelessWidget {
     return '$days days';
   }
 
+  void _openFreeze(BuildContext context) {
+    Navigator.push(context, MaterialPageRoute(builder: (_) => const FreezeRequestScreen()));
+  }
+
   @override
   Widget build(BuildContext context) {
     final gym = Provider.of<GymProvider>(context);
@@ -26,7 +32,10 @@ class MembershipScreen extends StatelessWidget {
     final bottomPadding = MediaQuery.of(context).padding.bottom;
 
     final current = gym.me?.membership;
-    final isExpired = current == null || current.status == 'expired' || current.daysLeft < 0;
+    final isFrozen = current?.status == 'frozen';
+    final isExpired = current == null || current.status == 'expired' || (current.daysLeft < 0 && !isFrozen);
+    final activeFreeze = gym.me?.activeFreeze;
+    final upcomingFreeze = gym.me?.upcomingFreeze;
 
     return Scaffold(
       backgroundColor: AppColors.bg,
@@ -50,6 +59,11 @@ class MembershipScreen extends StatelessWidget {
                 onBack: () => Navigator.pop(context),
               ),
               const SizedBox(height: 16),
+
+              if (upcomingFreeze != null && activeFreeze == null) ...[
+                UpcomingFreezeBanner(freeze: upcomingFreeze, onTap: () => _openFreeze(context)),
+                const SizedBox(height: 12),
+              ],
 
               // Current Membership Card
               if (current != null)
@@ -86,8 +100,9 @@ class MembershipScreen extends StatelessWidget {
                             crossAxisAlignment: CrossAxisAlignment.end,
                             children: [
                               AppBadge(
-                                text: isExpired ? 'Expired' : AppFormat.titleCase(current.status),
+                                text: isExpired ? 'Expired' : (isFrozen ? 'Frozen' : AppFormat.titleCase(current.status)),
                                 tone: isExpired ? BadgeTone.danger : getStatusTone(current.status),
+                                icon: isFrozen ? Icons.ac_unit : null,
                               ),
                               if (!isExpired) ...[
                                 const SizedBox(height: 4),
@@ -160,6 +175,48 @@ class MembershipScreen extends StatelessWidget {
                               icon: Icons.check,
                             );
                           }).toList(),
+                        ),
+                      ],
+
+                      if (isFrozen) ...[
+                        const SizedBox(height: 16),
+                        Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: kFreezeSoft,
+                            borderRadius: BorderRadius.circular(AppRadius.md),
+                          ),
+                          child: Row(
+                            children: [
+                              const Icon(Icons.ac_unit, size: 20, color: kFreeze),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    const Text(
+                                      'Membership Frozen',
+                                      style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: AppColors.text),
+                                    ),
+                                    Text(
+                                      'Paused till ${AppFormat.formatDate(activeFreeze?.endDate)} · Expiry extended to ${AppFormat.formatDate(current.endDate)}',
+                                      style: const TextStyle(fontSize: 12, color: AppColors.textMuted),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+
+                      if (canRequestFreeze(current)) ...[
+                        const SizedBox(height: 16),
+                        AppButton(
+                          title: isFrozen ? 'View Freeze Details' : 'Request Membership Freeze',
+                          icon: Icons.ac_unit,
+                          variant: ButtonVariant.secondary,
+                          onPress: () => _openFreeze(context),
                         ),
                       ],
 

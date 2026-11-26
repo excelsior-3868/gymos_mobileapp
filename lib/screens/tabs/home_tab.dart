@@ -5,8 +5,10 @@ import '../../models/models.dart';
 import '../../providers/gym_provider.dart';
 import '../../theme/app_theme.dart';
 import '../../utils/format.dart';
+import '../../widgets/engagement_widgets.dart';
 import '../../widgets/ui_components.dart';
 import '../sub_screens/billing_screen.dart';
+import '../sub_screens/freeze_request_screen.dart';
 import '../sub_screens/membership_screen.dart';
 import '../sub_screens/notifications_screen.dart';
 import '../sub_screens/referrals_screen.dart';
@@ -22,6 +24,59 @@ class HomeTab extends StatelessWidget {
     required this.onNavigateToOffers,
     required this.onNavigateToProfile,
   });
+
+  void _openFreeze(BuildContext context) =>
+      Navigator.push(context, MaterialPageRoute(builder: (_) => const FreezeRequestScreen()));
+
+  void _openNotifications(BuildContext context) =>
+      Navigator.push(context, MaterialPageRoute(builder: (_) => const NotificationsScreen()));
+
+  Widget _buildRecentNotification(BuildContext context, NotificationItem n) {
+    final t = notificationTypeStyle(n.type);
+    final isNew = n.status == 'unread';
+    return AppCard(
+      padding: const EdgeInsets.all(12),
+      onTap: () => _openNotifications(context),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          IconBubble(name: t.icon, color: t.color, bg: t.bg, size: 36),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        n.title,
+                        style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: AppColors.text),
+                      ),
+                    ),
+                    if (isNew)
+                      Container(
+                        width: 8,
+                        height: 8,
+                        margin: const EdgeInsets.only(left: 6),
+                        decoration: const BoxDecoration(shape: BoxShape.circle, color: AppColors.primary),
+                      ),
+                  ],
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  n.message,
+                  style: const TextStyle(fontSize: 12.5, height: 1.35, color: AppColors.textMuted),
+                ),
+                const SizedBox(height: 4),
+                Text(AppFormat.timeAgo(n.createdAt), style: const TextStyle(fontSize: 11, color: AppColors.textFaint)),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -79,8 +134,19 @@ class HomeTab extends StatelessWidget {
               const SizedBox(height: 14),
 
               // Membership Hero Banner
-              _buildMembershipHero(context, membership, visitedToday),
+              _buildMembershipHero(context, membership, visitedToday, me.activeFreeze),
               const SizedBox(height: 12),
+              if (me.upcomingFreeze != null && me.activeFreeze == null) ...[
+                UpcomingFreezeBanner(freeze: me.upcomingFreeze!, onTap: () => _openFreeze(context)),
+                const SizedBox(height: 12),
+              ],
+              if (gym.memberOfTheMonth != null) ...[
+                MemberOfTheMonthCard(
+                  motm: gym.memberOfTheMonth!,
+                  compact: true,
+                ),
+                const SizedBox(height: 12),
+              ],
               for (final offer in gym.offers.where((o) => o.type == "renewal_bonus")) ...[
                 _buildOfferBanner(context, offer),
                 const SizedBox(height: 12),
@@ -115,12 +181,9 @@ class HomeTab extends StatelessWidget {
                   const SizedBox(width: 10),
                   Expanded(
                     child: _buildQuickTile(
-                      icon: Icons.card_membership_outlined,
-                      label: 'Membership',
-                      onTap: () => Navigator.push(
-                        context,
-                        MaterialPageRoute(builder: (_) => const MembershipScreen()),
-                      ),
+                      icon: Icons.ac_unit,
+                      label: 'Freeze Plan',
+                      onTap: () => _openFreeze(context),
                     ),
                   ),
                 ],
@@ -198,6 +261,7 @@ class HomeTab extends StatelessWidget {
               const SizedBox(height: 24),
 
               // Today's Workout Section
+              if (gym.fitness?.workout != null) ...[
               SectionHeader(
                 title: "Today's workout",
                 icon: Icons.fitness_center,
@@ -369,6 +433,23 @@ class HomeTab extends StatelessWidget {
                       ),
               ),
               const SizedBox(height: 24),
+              ],
+
+              // Recent notifications
+              if (gym.notifications.isNotEmpty) ...[
+                SectionHeader(
+                  title: 'Recent notifications',
+                  icon: Icons.notifications_none_rounded,
+                  action: 'See all',
+                  onAction: () => _openNotifications(context),
+                ),
+                const SizedBox(height: 12),
+                for (final n in gym.notifications.take(3)) ...[
+                  _buildRecentNotification(context, n),
+                  const SizedBox(height: 8),
+                ],
+                const SizedBox(height: 12),
+              ],
 
               // Active Add-on Services
               if (activeServices.isNotEmpty) ...[
@@ -630,7 +711,7 @@ class HomeTab extends StatelessWidget {
     );
   }
 
-  Widget _buildMembershipHero(BuildContext context, MembershipView? m, bool visitedToday) {
+  Widget _buildMembershipHero(BuildContext context, MembershipView? m, bool visitedToday, FreezeRequest? activeFreeze) {
     if (m == null) {
       return Container(
         padding: const EdgeInsets.all(20),
@@ -685,10 +766,13 @@ class HomeTab extends StatelessWidget {
       );
     }
 
-    final isExpired = m.status == 'expired' || m.daysLeft < 0;
-    final isExpiring = !isExpired && m.daysLeft <= 7;
+    final isFrozen = m.status == 'frozen';
+    final isExpired = m.status == 'expired' || (m.daysLeft < 0 && !isFrozen);
+    final isExpiring = !isExpired && !isFrozen && m.daysLeft <= 7;
 
-    List<Color> gradientColors = isExpired
+    List<Color> gradientColors = isFrozen
+        ? [const Color(0xFF0B4F6C), const Color(0xFF0E7490), const Color(0xFF22A6C8)]
+        : isExpired
         ? [const Color(0xFF5B1A1A), const Color(0xFF8E2B2B), const Color(0xFFB53A3A)]
         : isExpiring
             ? [const Color(0xFF7A4A00), const Color(0xFFB26B00), const Color(0xFFD98A00)]
@@ -741,7 +825,9 @@ class HomeTab extends StatelessWidget {
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      isExpired
+                      isFrozen
+                          ? 'Membership Frozen'
+                          : isExpired
                           ? 'Membership expired'
                           : m.daysLeft == 0
                               ? 'Expires today'
@@ -763,7 +849,7 @@ class HomeTab extends StatelessWidget {
                   borderRadius: BorderRadius.circular(AppRadius.pill),
                 ),
                 child: Text(
-                  isExpired ? 'Expired' : AppFormat.titleCase(m.status),
+                  isExpired ? 'Expired' : (isFrozen ? 'Frozen' : AppFormat.titleCase(m.status)),
                   style: const TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.w600,
@@ -773,6 +859,13 @@ class HomeTab extends StatelessWidget {
               ),
             ],
           ),
+          if (isFrozen) ...[
+            const SizedBox(height: 4),
+            Text(
+              'Paused till ${AppFormat.formatDate(activeFreeze?.endDate)} · Expiry extended to ${AppFormat.formatDate(m.endDate)}',
+              style: const TextStyle(fontSize: 12, color: Color(0xE6FFFFFF)),
+            ),
+          ],
           const SizedBox(height: 10),
           AppProgressBar(
             value: isExpired ? 1.0 : m.progress,

@@ -20,6 +20,10 @@ class AuthProvider extends ChangeNotifier {
   bool _biometricPrompted = false;
   String _biometricLabel = 'Biometrics';
 
+  /// True once the login spotlight (Member of the Month + notices) has been
+  /// shown/dismissed for the current session. Reset on login() and signOut().
+  bool spotlightShownThisSession = false;
+
   bool get isReady => _isReady;
   String? get token => _token;
   bool get isSignedIn => _token != null && _token!.isNotEmpty;
@@ -120,6 +124,7 @@ class AuthProvider extends ChangeNotifier {
     _mustChangePassword = mustChange;
     _savedRegistrationNumber = cleanReg;
     _sessionPassword = cleanPass;
+    spotlightShownThisSession = false;
 
     // Sync or reset biometric credentials if a different account logs in.
     final existingCreds = await StorageService.getBiometricCredentials();
@@ -298,6 +303,7 @@ class AuthProvider extends ChangeNotifier {
     _token = null;
     _mustChangePassword = false;
     _sessionPassword = null;
+    spotlightShownThisSession = false;
     ApiService.setToken(null);
     await StorageService.removeToken();
     await StorageService.remove(keyMustChange);

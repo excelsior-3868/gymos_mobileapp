@@ -1,3 +1,8 @@
+export 'engagement_models.dart';
+import 'engagement_models.dart';
+
+int _asInt(dynamic v) => v is num ? v.toInt() : int.tryParse(v?.toString() ?? '') ?? 0;
+
 class Member {
   final String id;
   final String registrationNumber;
@@ -112,6 +117,7 @@ class MembershipView {
   final String? dueAmount;
   final int? totalSessions;
   final int? usedSessions;
+  final int frozenDays;
   final PackageInfo package;
 
   MembershipView({
@@ -125,6 +131,7 @@ class MembershipView {
     this.dueAmount,
     this.totalSessions,
     this.usedSessions,
+    this.frozenDays = 0,
     required this.package,
   });
 
@@ -140,6 +147,7 @@ class MembershipView {
       dueAmount: json['dueAmount']?.toString(),
       totalSessions: json['totalSessions'] is int ? json['totalSessions'] : int.tryParse(json['totalSessions']?.toString() ?? ''),
       usedSessions: json['usedSessions'] is int ? json['usedSessions'] : int.tryParse(json['usedSessions']?.toString() ?? ''),
+      frozenDays: _asInt(json['frozenDays']),
       package: PackageInfo.fromJson(json['package'] ?? {}),
     );
   }
@@ -180,6 +188,10 @@ class MeResponse {
   final List<ServiceView> services;
   final int unreadNotifications;
   final String outstandingInvoices;
+  final FreezeRequest? activeFreeze;
+  final FreezeRequest? upcomingFreeze;
+  final int pendingFreezeCount;
+  final MemberOfTheMonth? memberOfTheMonth;
 
   MeResponse({
     required this.member,
@@ -187,6 +199,10 @@ class MeResponse {
     required this.services,
     required this.unreadNotifications,
     required this.outstandingInvoices,
+    this.activeFreeze,
+    this.upcomingFreeze,
+    this.pendingFreezeCount = 0,
+    this.memberOfTheMonth,
   });
 
   factory MeResponse.fromJson(Map<String, dynamic> json) {
@@ -196,6 +212,10 @@ class MeResponse {
       services: (json['services'] as List<dynamic>?)?.map((s) => ServiceView.fromJson(s)).toList() ?? [],
       unreadNotifications: json['unreadNotifications'] is int ? json['unreadNotifications'] : int.tryParse(json['unreadNotifications']?.toString() ?? '0') ?? 0,
       outstandingInvoices: json['outstandingInvoices']?.toString() ?? '0',
+      activeFreeze: FreezeRequest.tryParse(json['activeFreeze']),
+      upcomingFreeze: FreezeRequest.tryParse(json['upcomingFreeze']),
+      pendingFreezeCount: _asInt(json['pendingFreezeCount']),
+      memberOfTheMonth: MemberOfTheMonth.tryParse(json['memberOfTheMonth']),
     );
   }
 }
@@ -748,6 +768,17 @@ class Offer {
     required this.eligible,
     required this.bonuses,
   });
+
+  /// True while the offer is inside its validity period. The end date is
+  /// inclusive (the whole last day counts). An unparsable date keeps the offer
+  /// visible, since the server already filters expired offers.
+  bool isValidAt(DateTime now) {
+    final end = DateTime.tryParse(endDate);
+    if (end == null) return true;
+    final e = end.toLocal();
+    final lastMoment = DateTime(e.year, e.month, e.day, 23, 59, 59, 999);
+    return !now.isAfter(lastMoment);
+  }
 
   factory Offer.fromJson(Map<String, dynamic> json) => Offer(
         id: json['id']?.toString() ?? '',

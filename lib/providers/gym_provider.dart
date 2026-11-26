@@ -16,6 +16,13 @@ class GymProvider extends ChangeNotifier {
   List<PackageInfo> _packages = [];
   List<MembershipView> _membershipHistory = [];
   List<Offer> _offers = [];
+  List<FreezeRequest> _freezeRequests = [];
+  NoticeboardResponse? _noticeboard;
+
+  bool _isLoadingFreeze = false;
+  bool _isLoadingNoticeboard = false;
+  String? _freezeError;
+  String? _noticeboardError;
 
   bool _isLoadingMe = false;
   bool _isLoadingAttendance = false;
@@ -44,7 +51,26 @@ class GymProvider extends ChangeNotifier {
   ReferralsResponse? get referrals => _referrals;
   List<PackageInfo> get packages => _packages;
   List<MembershipView> get membershipHistory => _membershipHistory;
-  List<Offer> get offers => _offers;
+  /// Only offers still inside their validity period; re-evaluated on every read
+  /// so an offer disappears once its end date passes, even without a refetch.
+  List<Offer> get offers {
+    final now = DateTime.now();
+    return _offers.where((o) => o.isValidAt(now)).toList();
+  }
+
+  List<FreezeRequest> get freezeRequests => _freezeRequests;
+  NoticeboardResponse? get noticeboard => _noticeboard;
+  bool get isLoadingFreeze => _isLoadingFreeze;
+  bool get isLoadingNoticeboard => _isLoadingNoticeboard;
+  String? get freezeError => _freezeError;
+  String? get noticeboardError => _noticeboardError;
+
+  /// Member of the Month from the noticeboard feed, falling back to /me.
+  /// Hidden once a day has passed since it was published.
+  MemberOfTheMonth? get memberOfTheMonth {
+    final m = _noticeboard?.memberOfTheMonth ?? _me?.memberOfTheMonth;
+    return (m != null && m.isWithinDay()) ? m : null;
+  }
 
   bool get isLoadingMe => _isLoadingMe;
   bool get isLoadingAttendance => _isLoadingAttendance;
@@ -75,7 +101,83 @@ class GymProvider extends ChangeNotifier {
       fetchPackages(),
       fetchMembershipHistory(),
       fetchOffers(),
+      fetchNoticeboard(),
+      fetchFreezeRequests(),
     ]);
+  }
+
+  /// Refreshes everything a freeze/award/event/notice push can affect.
+  Future<void> refreshEngagement() async {
+    await Future.wait([
+      fetchMe(),
+      fetchFreezeRequests(),
+      fetchNoticeboard(),
+      fetchNotifications(),
+    ]);
+  }
+
+  Future<void>? _noticeboardInFlight;
+
+  /// Concurrent callers (e.g. fetchAll + the login spotlight) share one request.
+  Future<void> fetchNoticeboard() {
+    return _noticeboardInFlight ??= _fetchNoticeboard().whenComplete(() => _noticeboardInFlight = null);
+  }
+
+  Future<void> _fetchNoticeboard() async {
+    _isLoadingNoticeboard = true;
+    _noticeboardError = null;
+    notifyListeners();
+    try {
+      final res = await ApiService.get('/portal/noticeboard');
+      if (res is Map) {
+        _noticeboard = NoticeboardResponse.fromJson(Map<String, dynamic>.from(res));
+      }
+    } catch (e) {
+      _noticeboardError = e.toString();
+    } finally {
+      _isLoadingNoticeboard = false;
+      notifyListeners();
+    }
+  }
+
+  Future<void> fetchFreezeRequests() async {
+    _isLoadingFreeze = true;
+    _freezeError = null;
+    notifyListeners();
+    try {
+      final res = await ApiService.get('/portal/freeze-requests');
+      if (res is List) {
+        _freezeRequests = res
+            .whereType<Map>()
+            .map((e) => FreezeRequest.fromJson(Map<String, dynamic>.from(e)))
+            .toList();
+      }
+    } catch (e) {
+      _freezeError = e.toString();
+    } finally {
+      _isLoadingFreeze = false;
+      notifyListeners();
+    }
+  }
+
+  /// Throws [ApiException] with the backend's message on validation errors.
+  Future<void> submitFreezeRequest({
+    required String startDate,
+    required String endDate,
+    String? reason,
+  }) async {
+    final trimmed = reason?.trim() ?? '';
+    await ApiService.post('/portal/freeze-requests', body: {
+      'startDate': startDate,
+      'endDate': endDate,
+      if (trimmed.isNotEmpty) 'reason': trimmed,
+    });
+    await Future.wait([fetchFreezeRequests(), fetchMe()]);
+  }
+
+  Future<void> cancelFreezeRequest(String id) async {
+    await ApiService.delete('/portal/freeze-requests/$id');
+    await Future.wait([fetchFreezeRequests(), fetchMe()]);
   }
 
   Future<void> _precacheAvatar(String? uri, {bool forceReload = false}) async {
@@ -334,6 +436,8 @@ class GymProvider extends ChangeNotifier {
     _packages = [];
     _membershipHistory = [];
     _offers = [];
+    _freezeRequests = [];
+    _noticeboard = null;
     notifyListeners();
   }
 }
