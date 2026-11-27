@@ -319,6 +319,18 @@ class ProfileTab extends StatelessWidget {
                     ),
                     const AppDivider(),
                     _buildRow(
+                      icon: Icons.emoji_events_outlined,
+                      title: 'Employee of the Month',
+                      subtitle: 'Current winner & award history',
+                      onTap: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => const NotificationsScreen(initialTab: 1),
+                        ),
+                      ),
+                    ),
+                    const AppDivider(),
+                    _buildRow(
                       icon: Icons.card_giftcard_outlined,
                       title: 'Refer & earn',
                       subtitle: 'Invite friends, earn rewards',

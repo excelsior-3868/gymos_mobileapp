@@ -4,6 +4,19 @@ int _asInt(dynamic v) => v is num ? v.toInt() : int.tryParse(v?.toString() ?? ''
 
 Map<String, dynamic>? _asMap(dynamic v) => v is Map ? Map<String, dynamic>.from(v) : null;
 
+const Duration _nepalOffset = Duration(hours: 5, minutes: 45);
+
+/// Returns true if [rawTimestamp] falls on the same Nepal (UTC+5:45) calendar day as [now].
+bool _isSameNepalDay(String rawTimestamp, [DateTime? now]) {
+  final parsed = DateTime.tryParse(rawTimestamp);
+  if (parsed == null) return false;
+  final itemNpt = parsed.toUtc().add(_nepalOffset);
+  final todayNpt = (now ?? DateTime.now()).toUtc().add(_nepalOffset);
+  return itemNpt.year == todayNpt.year &&
+      itemNpt.month == todayNpt.month &&
+      itemNpt.day == todayNpt.day;
+}
+
 class FreezeRequest {
   final String id;
   final String memberId;
@@ -62,6 +75,59 @@ class FreezeRequest {
   static FreezeRequest? tryParse(dynamic v) {
     final m = _asMap(v);
     return m == null ? null : FreezeRequest.fromJson(m);
+  }
+}
+
+class FreezeAllowance {
+  final bool enabled;
+  final String membershipId;
+  final String membershipStatus;
+  final String membershipEndDate;
+  final String packageName;
+  final String billingCycle;
+  final String cycleLabel;
+  final int maxDays;
+  final int usedDays;
+  final int remainingDays;
+  final bool canFreeze;
+
+  const FreezeAllowance({
+    required this.enabled,
+    required this.membershipId,
+    required this.membershipStatus,
+    required this.membershipEndDate,
+    required this.packageName,
+    required this.billingCycle,
+    required this.cycleLabel,
+    required this.maxDays,
+    required this.usedDays,
+    required this.remainingDays,
+    required this.canFreeze,
+  });
+
+  factory FreezeAllowance.fromJson(Map<String, dynamic> json) {
+    final src = _asMap(json['allowance']) ?? json;
+    return FreezeAllowance(
+      enabled: src['enabled'] != false,
+      membershipId: src['membershipId']?.toString() ?? '',
+      membershipStatus: src['membershipStatus']?.toString() ?? '',
+      membershipEndDate: src['membershipEndDate']?.toString() ?? '',
+      packageName: src['packageName']?.toString() ?? '',
+      billingCycle: src['billingCycle']?.toString() ?? '',
+      cycleLabel: src['cycleLabel']?.toString() ?? '',
+      maxDays: _asInt(src['maxDays']),
+      usedDays: _asInt(src['usedDays']),
+      remainingDays: _asInt(src['remainingDays']),
+      canFreeze: src['canFreeze'] == true,
+    );
+  }
+
+  static FreezeAllowance? tryParse(dynamic v) {
+    final m = _asMap(v);
+    if (m == null) return null;
+    final inner = _asMap(m['allowance']) ?? m;
+    if (inner.isEmpty) return null;
+    return FreezeAllowance.fromJson(inner);
   }
 }
 
@@ -140,13 +206,11 @@ class MemberOfTheMonth {
     );
   }
 
-  /// The announcement is only shown for one day after it was published.
-  /// An unparseable timestamp is treated as fresh so it never hides by mistake.
-  bool isWithinDay([DateTime? now]) {
-    final published = DateTime.tryParse(publishedAt);
-    if (published == null) return true;
-    return (now ?? DateTime.now()).toUtc().difference(published.toUtc()) < const Duration(days: 1);
-  }
+  /// True only on the calendar day (Nepal time) this announcement was published.
+  bool isAnnouncedToday([DateTime? now]) => _isSameNepalDay(publishedAt, now);
+
+  /// Alias kept for callers checking whether the announcement is still for today.
+  bool isWithinDay([DateTime? now]) => isAnnouncedToday(now);
 
   static MemberOfTheMonth? tryParse(dynamic v) {
     final m = _asMap(v);
@@ -193,6 +257,9 @@ class NoticeItem {
       isPinned: json['isPinned'] == true,
     );
   }
+
+  /// True only on the calendar day (Nepal time) this notice was posted.
+  bool isAnnouncedToday([DateTime? now]) => _isSameNepalDay(createdAt, now);
 }
 
 class NoticeboardResponse {

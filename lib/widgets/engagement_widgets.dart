@@ -305,48 +305,40 @@ class LoginSpotlight extends StatelessWidget {
     final items = [...data.notices]..sort((a, b) => (b.isPinned ? 1 : 0) - (a.isPinned ? 1 : 0));
     final top = items.take(3).toList();
 
-    return DraggableScrollableSheet(
-      expand: false,
-      initialChildSize: 0.85,
-      minChildSize: 0.5,
-      maxChildSize: 0.95,
-      builder: (context, controller) => Column(
-        children: [
-          Expanded(
-            child: ListView(
-              controller: controller,
-              padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
-              children: [
-                Center(
-                  child: Container(
-                    width: 40,
-                    height: 4,
-                    decoration: BoxDecoration(color: AppColors.border, borderRadius: BorderRadius.circular(4)),
-                  ),
-                ),
-                const SizedBox(height: 16),
-                if (motm != null) ...[
-                  MemberOfTheMonthCard(motm: motm),
-                  const SizedBox(height: 16),
-                ],
-                if (top.isNotEmpty) ...[
-                  const SectionHeader(title: 'Noticeboard', icon: Icons.campaign_outlined),
-                  const SizedBox(height: 10),
-                  for (final n in top) ...[
-                    NoticeCard(notice: n, preview: true),
-                    const SizedBox(height: 8),
-                  ],
-                ],
-              ],
+    return SafeArea(
+      top: false,
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Center(
+              child: Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(color: AppColors.border, borderRadius: BorderRadius.circular(4)),
+              ),
             ),
-          ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-            child: Row(
+            const SizedBox(height: 16),
+            if (motm != null) ...[
+              MemberOfTheMonthCard(motm: motm),
+              const SizedBox(height: 16),
+            ],
+            if (top.isNotEmpty) ...[
+              const SectionHeader(title: 'Noticeboard', icon: Icons.campaign_outlined),
+              const SizedBox(height: 10),
+              for (final n in top) ...[
+                NoticeCard(notice: n, preview: true),
+                const SizedBox(height: 8),
+              ],
+              const SizedBox(height: 8),
+            ],
+            Row(
               children: [
                 Expanded(
                   child: AppButton(
-                    title: 'View Notifications',
+                    title: 'View History',
                     variant: ButtonVariant.secondary,
                     onPress: () {
                       Navigator.pop(context);
@@ -358,8 +350,8 @@ class LoginSpotlight extends StatelessWidget {
                 Expanded(child: AppButton(title: 'Got it', onPress: () => Navigator.pop(context))),
               ],
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

@@ -479,12 +479,67 @@ class WorkoutPlan {
   }
 }
 
+class DietMeal {
+  final String name;
+  final String time;
+  final List<String> items;
+
+  DietMeal({
+    required this.name,
+    required this.time,
+    required this.items,
+  });
+
+  factory DietMeal.fromJson(Map<String, dynamic> json) {
+    return DietMeal(
+      name: json['name']?.toString() ?? '',
+      time: json['time']?.toString() ?? '',
+      items: (json['items'] as List<dynamic>?)
+              ?.map((e) => e.toString().trim())
+              .where((e) => e.isNotEmpty)
+              .toList() ??
+          [],
+    );
+  }
+}
+
+class DietMealPlan {
+  final int version;
+  final List<DietMeal> meals;
+  final List<String> tips;
+
+  DietMealPlan({
+    required this.version,
+    required this.meals,
+    required this.tips,
+  });
+
+  factory DietMealPlan.fromJson(Map<String, dynamic> json) {
+    return DietMealPlan(
+      version: json['version'] is int
+          ? json['version']
+          : int.tryParse(json['version']?.toString() ?? '1') ?? 1,
+      meals: (json['meals'] as List<dynamic>?)
+              ?.whereType<Map>()
+              .map((e) => DietMeal.fromJson(Map<String, dynamic>.from(e)))
+              .toList() ??
+          [],
+      tips: (json['tips'] as List<dynamic>?)
+              ?.map((e) => e.toString().trim())
+              .where((e) => e.isNotEmpty)
+              .toList() ??
+          [],
+    );
+  }
+}
+
 class DietPlan {
   final String id;
   final String name;
   final String? description;
   final String? targetGoal;
   final int? calories;
+  final DietMealPlan? mealPlan;
   final String? details;
 
   DietPlan({
@@ -493,6 +548,7 @@ class DietPlan {
     this.description,
     this.targetGoal,
     this.calories,
+    this.mealPlan,
     this.details,
   });
 
@@ -503,6 +559,9 @@ class DietPlan {
       description: json['description'],
       targetGoal: json['targetGoal'],
       calories: json['calories'] is int ? json['calories'] : int.tryParse(json['calories']?.toString() ?? ''),
+      mealPlan: json['mealPlan'] is Map
+          ? DietMealPlan.fromJson(Map<String, dynamic>.from(json['mealPlan']))
+          : null,
       details: json['details'],
     );
   }

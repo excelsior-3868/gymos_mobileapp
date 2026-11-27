@@ -435,16 +435,16 @@ class HomeTab extends StatelessWidget {
               const SizedBox(height: 24),
               ],
 
-              // Recent notifications
+              // Recent Notifications (latest 5 + View all)
               if (gym.notifications.isNotEmpty) ...[
                 SectionHeader(
                   title: 'Recent notifications',
                   icon: Icons.notifications_none_rounded,
-                  action: 'See all',
+                  action: 'View all',
                   onAction: () => _openNotifications(context),
                 ),
                 const SizedBox(height: 12),
-                for (final n in gym.notifications.take(3)) ...[
+                for (final n in gym.notifications.take(5)) ...[
                   _buildRecentNotification(context, n),
                   const SizedBox(height: 8),
                 ],

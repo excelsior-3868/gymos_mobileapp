@@ -554,8 +554,17 @@ class _TrainTabState extends State<TrainTab> {
           const SizedBox(height: 16),
         ],
 
-        // Meal Guide Bullets
-        if (lines.isNotEmpty)
+        // Structured Meal Cards + Tips (with legacy details fallback)
+        if (diet.mealPlan != null && diet.mealPlan!.meals.isNotEmpty) ...[
+          for (final meal in diet.mealPlan!.meals) ...[
+            _buildMealCard(meal),
+            const SizedBox(height: 12),
+          ],
+          if (diet.mealPlan!.tips.isNotEmpty) ...[
+            const SizedBox(height: 4),
+            _buildDietTipsCard(diet.mealPlan!.tips),
+          ],
+        ] else if (lines.isNotEmpty)
           AppCard(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -599,6 +608,147 @@ class _TrainTabState extends State<TrainTab> {
             ),
           ),
       ],
+    );
+  }
+
+  Widget _buildMealCard(DietMeal meal) {
+    final hasTime = meal.time.trim().isNotEmpty;
+    return AppCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  meal.name,
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.text,
+                  ),
+                ),
+              ),
+              if (hasTime) ...[
+                const SizedBox(width: 8),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: AppColors.successSoft,
+                    borderRadius: BorderRadius.circular(AppRadius.pill),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.schedule, size: 12, color: AppColors.success),
+                      const SizedBox(width: 4),
+                      Text(
+                        meal.time,
+                        style: const TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.success,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ],
+          ),
+          if (meal.items.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            for (var i = 0; i < meal.items.length; i++)
+              Padding(
+                padding: EdgeInsets.only(bottom: i == meal.items.length - 1 ? 0 : 8),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      width: 6,
+                      height: 6,
+                      margin: const EdgeInsets.only(top: 7, right: 10),
+                      decoration: const BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: AppColors.success,
+                      ),
+                    ),
+                    Expanded(
+                      child: Text(
+                        meal.items[i],
+                        style: const TextStyle(
+                          fontSize: 14,
+                          height: 1.4,
+                          color: AppColors.text,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDietTipsCard(List<String> tips) {
+    return AppCard(
+      backgroundColor: AppColors.warningSoft.withValues(alpha: 0.55),
+      borderColor: const Color(0xFFF6DDAA),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Row(
+            children: [
+              IconBubble(
+                name: Icons.lightbulb_outline_rounded,
+                color: AppColors.warning,
+                bg: Color(0xFFFFE6B8),
+                size: 36,
+              ),
+              SizedBox(width: 10),
+              Text(
+                'Tips & Guidelines',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.text,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          for (var i = 0; i < tips.length; i++)
+            Padding(
+              padding: EdgeInsets.only(bottom: i == tips.length - 1 ? 0 : 8),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    width: 6,
+                    height: 6,
+                    margin: const EdgeInsets.only(top: 7, right: 10),
+                    decoration: const BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: AppColors.warning,
+                    ),
+                  ),
+                  Expanded(
+                    child: Text(
+                      tips[i],
+                      style: const TextStyle(
+                        fontSize: 13.5,
+                        height: 1.45,
+                        color: AppColors.text,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+        ],
+      ),
     );
   }
 

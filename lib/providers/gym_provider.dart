@@ -59,17 +59,25 @@ class GymProvider extends ChangeNotifier {
   }
 
   List<FreezeRequest> get freezeRequests => _freezeRequests;
+  FreezeAllowance? _freezePolicy;
+  FreezeAllowance? get freezePolicy => _freezePolicy;
+  bool _isLoadingFreezePolicy = false;
+  bool get isLoadingFreezePolicy => _isLoadingFreezePolicy;
   NoticeboardResponse? get noticeboard => _noticeboard;
   bool get isLoadingFreeze => _isLoadingFreeze;
   bool get isLoadingNoticeboard => _isLoadingNoticeboard;
   String? get freezeError => _freezeError;
   String? get noticeboardError => _noticeboardError;
 
-  /// Member of the Month from the noticeboard feed, falling back to /me.
-  /// Hidden once a day has passed since it was published.
+  /// Latest Member of the Month regardless of age (used for Noticeboard history).
+  MemberOfTheMonth? get latestMemberOfTheMonth =>
+      _noticeboard?.memberOfTheMonth ?? _me?.memberOfTheMonth;
+
+  /// Member of the Month shown in today's spotlight / Home banner — only visible
+  /// on the calendar day the announcement was published.
   MemberOfTheMonth? get memberOfTheMonth {
-    final m = _noticeboard?.memberOfTheMonth ?? _me?.memberOfTheMonth;
-    return (m != null && m.isWithinDay()) ? m : null;
+    final m = latestMemberOfTheMonth;
+    return (m != null && m.isAnnouncedToday()) ? m : null;
   }
 
   bool get isLoadingMe => _isLoadingMe;
@@ -103,6 +111,7 @@ class GymProvider extends ChangeNotifier {
       fetchOffers(),
       fetchNoticeboard(),
       fetchFreezeRequests(),
+      fetchFreezePolicy(),
     ]);
   }
 
@@ -111,6 +120,7 @@ class GymProvider extends ChangeNotifier {
     await Future.wait([
       fetchMe(),
       fetchFreezeRequests(),
+      fetchFreezePolicy(),
       fetchNoticeboard(),
       fetchNotifications(),
     ]);
@@ -160,6 +170,23 @@ class GymProvider extends ChangeNotifier {
     }
   }
 
+  Future<void> fetchFreezePolicy() async {
+    _isLoadingFreezePolicy = true;
+    notifyListeners();
+    try {
+      final res = await ApiService.get('/portal/freeze-policy');
+      final parsed = FreezeAllowance.tryParse(res);
+      if (parsed != null) {
+        _freezePolicy = parsed;
+      }
+    } catch (_) {
+      // Keep last known policy on transient errors.
+    } finally {
+      _isLoadingFreezePolicy = false;
+      notifyListeners();
+    }
+  }
+
   /// Throws [ApiException] with the backend's message on validation errors.
   Future<void> submitFreezeRequest({
     required String startDate,
@@ -172,12 +199,12 @@ class GymProvider extends ChangeNotifier {
       'endDate': endDate,
       if (trimmed.isNotEmpty) 'reason': trimmed,
     });
-    await Future.wait([fetchFreezeRequests(), fetchMe()]);
+    await Future.wait([fetchFreezeRequests(), fetchFreezePolicy(), fetchMe()]);
   }
 
   Future<void> cancelFreezeRequest(String id) async {
     await ApiService.delete('/portal/freeze-requests/$id');
-    await Future.wait([fetchFreezeRequests(), fetchMe()]);
+    await Future.wait([fetchFreezeRequests(), fetchFreezePolicy(), fetchMe()]);
   }
 
   Future<void> _precacheAvatar(String? uri, {bool forceReload = false}) async {
@@ -437,6 +464,7 @@ class GymProvider extends ChangeNotifier {
     _membershipHistory = [];
     _offers = [];
     _freezeRequests = [];
+    _freezePolicy = null;
     _noticeboard = null;
     notifyListeners();
   }

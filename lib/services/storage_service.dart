@@ -6,6 +6,7 @@ class StorageService {
   static const String keyServerUrl = 'gymos_server_url';
   static const String keyBiometricEnabled = 'gymos_biometric_enabled';
   static const String keyBiometricPrompted = 'gymos_biometric_prompted';
+  static const String keySpotlightSeen = 'gymos_spotlight_seen_key';
   static const String _keyBioUsername = 'gymos_bio_username';
   static const String _keyBioPassword = 'gymos_bio_password';
 
@@ -13,6 +14,9 @@ class StorageService {
 
   static Future<String?> getServerUrl() async => getString(keyServerUrl);
   static Future<void> setServerUrl(String url) async => setString(keyServerUrl, url);
+
+  static Future<String?> getSpotlightSeenKey() async => getString(keySpotlightSeen);
+  static Future<void> setSpotlightSeenKey(String value) async => setString(keySpotlightSeen, value);
 
   static Future<bool> getBiometricEnabled() async {
     final prefs = await SharedPreferences.getInstance();

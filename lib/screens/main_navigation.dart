@@ -5,7 +5,9 @@ import '../models/models.dart';
 import '../providers/auth_provider.dart';
 import '../providers/gym_provider.dart';
 import '../services/push_notification_service.dart';
+import '../services/storage_service.dart';
 import '../theme/app_theme.dart';
+import '../utils/format.dart';
 import '../widgets/biometric_setup_sheet.dart';
 import '../widgets/engagement_widgets.dart';
 import 'sub_screens/freeze_request_screen.dart';
@@ -59,7 +61,7 @@ class _MainNavigationState extends State<MainNavigation> {
     final screen = data['screen']?.toString();
     final Widget target;
     if (screen == 'noticeboard') {
-      target = const NotificationsScreen();
+      target = const NotificationsScreen(initialTab: 1);
     } else if (screen == 'membership') {
       target = data['freezeRequestId'] != null ? const FreezeRequestScreen() : const MembershipScreen();
     } else {
@@ -73,7 +75,8 @@ class _MainNavigationState extends State<MainNavigation> {
     await _maybeShowSpotlight();
   }
 
-  /// Shows the Member of the Month + notices sheet once per login session.
+  /// Shows the Member of the Month spotlight only on the day it was announced,
+  /// and at most once per announcement. Regular notices stay in the notification bell.
   Future<void> _maybeShowSpotlight() async {
     if (!mounted) return;
     final auth = Provider.of<AuthProvider>(context, listen: false);
@@ -83,22 +86,31 @@ class _MainNavigationState extends State<MainNavigation> {
     await gym.fetchNoticeboard();
     if (!mounted || auth.spotlightShownThisSession) return;
 
-    final raw = gym.noticeboard;
-    if (raw == null) return;
+    final todayMotm = gym.memberOfTheMonth; // non-null only if published today
+    if (todayMotm == null) return;
+
+    final fingerprint = '${AppFormat.todayKey()}|${todayMotm.id}';
+    final lastSeen = await StorageService.getSpotlightSeenKey();
+    if (!mounted || lastSeen == fingerprint) return;
+
     final data = NoticeboardResponse(
-      notices: raw.notices,
-      upcomingEvents: raw.upcomingEvents,
-      memberOfTheMonth: gym.memberOfTheMonth, // null once it is older than a day
+      notices: const [],
+      upcomingEvents: const [],
+      memberOfTheMonth: todayMotm,
     );
-    if (data.memberOfTheMonth == null && data.notices.isEmpty) return;
 
     auth.spotlightShownThisSession = true;
+    await StorageService.setSpotlightSeenKey(fingerprint);
+    if (!mounted) return;
     await LoginSpotlight.show(
       context,
       data: data,
       onViewNotifications: () {
         if (!mounted) return;
-        Navigator.push(context, MaterialPageRoute(builder: (_) => const NotificationsScreen()));
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => const NotificationsScreen(initialTab: 1)),
+        );
       },
     );
   }
